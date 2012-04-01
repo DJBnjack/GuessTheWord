@@ -1,13 +1,8 @@
-var exec = require("child_process").exec;
-
 function start(response) {
   console.log("Request handler 'start' was called.");
-
-  exec("dir", function (error, stdout, stderr) {
-    response.writeHead(200, {"Content-Type": "text/plain"});
-    response.write(stdout);
-    response.end();
-  });
+  response.writeHead(200, {"Content-Type": "text/plain"});
+  response.write("Hello Start");
+  response.end();
 }
 
 function upload(response) {
