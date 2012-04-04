@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset=utf-8>
+    <title>Word Guess</title>
+    <!--[if IE]>
+      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <style>
+      body { margin:100px; }
+      article, aside, figure, footer, header, hgroup, menu, nav, section { 
+        display:block;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Welcome to Word Guess</h1>
+	  <div id="div_info" style="display:none">
+		<span><label id="label_user"></label><button id="button_disconnect">disconnect</button></span>
+		<p id="p_players"></p>
+	  </div>
+    </header>
+	<div id="div_login">
+		<h2>Please choose a name to start</h2>
+		<span>Nickname: <input id="input_name"><button id="button_play">Play</button></span>
+	</div>
+	<div id="div_play" style="display: none">
+		<h2>Guess the word!</h2>
+		<p id="p_hint"></p>
+		<ul id="ul_feedback"></ul>
+		<span><input id="input_guess"><button id="button_guess">Guess</button></span>
+	</div>
+	<div id="div_scores" style="display: none">
+		<h2 id="h2_winner"></h2>
+		<p>Your score:</p>
+		<h2 id="h2_score"></h2>
+		<p id="p_newgame"></p>
+	</div>
+    <footer>
+      <p>Created with HTML5, Node.js and Socket.IO</p>
+    </footer>
+	
+<script src="/socket.io/socket.io.js"></script>
+<script src="/jquery-1.7.2.js"></script>
+<script>
+	var socket;
+	var connected = false;
+	var score = 0;
+
+	function getKeys(dict) {
+		var keys = [];
+		for (var key in dict) keys.push(key);
+		return keys;
+	}
+
+	function doLogin() {
+		console.log("Loggin on now...");
+		socket = io.connect(null,{'force new connection':true}); // io.connect();
+		
+		// Register hooks
+		socket.on('guessed', function (name) {
+			if (name == $('#input_name').val())
+				$("#h2_winner").html('You won!');
+			else
+				$("#h2_winner").html('Winner: '+name);
+				
+			toScore();
+		});
+			
+		socket.on('connect', function () {
+			// Send our name
+			socket.emit('set nickname', $("#input_name").val());
+			
+			// Set and show connection info
+			$("#label_user").html('Connected to server as: '+$("#input_name").val());
+			$("#div_info").slideDown();
+		});
+		
+		socket.on('players', function(playerDict) {
+			var players = getKeys(playerDict);
+				
+			$("#p_players").html("");
+			if (players.length > 1)
+			{
+				$("#p_players").html(players.length + ' players: ');
+
+				for(var i = 0; i < players.length-1;i++)
+					$("#p_players").append(players[i] + ', ');
+
+				$("#p_players").append(players[players.length-1]);
+			}
+		});
+		
+		socket.on('hint', function (hint) {
+			$('#p_hint').html(hint);
+			$('#ul_feedback').html("");
+			
+			if ($("#div_login").is(':visible'))
+			{
+				// Transition from login to guess
+				$("#div_login").fadeOut("slow",function(){
+					$("#div_play").fadeIn("slow",function(){
+						$("#input_guess").focus();
+					});
+				});
+			}
+			else
+			{
+				// Transition from scores to guess
+				$("#div_scores").fadeOut("slow",function(){
+					$("#div_play").fadeIn("slow",function(){
+						$("#input_guess").focus();
+					});
+				});
+			}
+		});
+		
+		socket.on('connect_failed', function () {
+			console.log('connection failed. reconnecting...')
+			socket.connect()
+		})
+		
+		socket.on('error', function (reason){
+			console.error('Unable to connect Socket.IO', reason);
+		});
+
+		
+		socket.on('result',function (result) {
+			$('#ul_feedback').append("<li>"+result+"</li>");
+			if (result == '00000')
+			{
+				score = score + 1;
+			}
+		});
+	}
+	
+	function submitName() {
+		doLogin();
+		$("#p_hint").html("Getting hint from server...");
+		$("#ul_feedback").html("");
+	}
+	
+	function submitGuess() {
+		socket.emit('guess', $("#input_guess").val().toUpperCase());
+		$('#input_guess').val('');
+	}
+	
+	function showScoreTime(secs) {
+		if (secs > 1)
+		{
+			$("#p_newgame").html(secs + ' seconds remaining till next game...');
+			setTimeout("showScoreTime("+(secs-1)+")",1000);
+		}
+		else
+		{
+			$("#p_newgame").html('New game starting in less than one second!');
+		}
+	}
+	
+	function toScore() {
+		// Done with guessing
+		$("#h2_score").html(score);
+		showScoreTime(5);
+		
+
+		$("#div_play").fadeOut("slow",function(){
+			$("#div_scores").fadeIn("slow");
+		});
+	}
+	
+	function disconnect() {
+		socket.disconnect();
+
+		// Show only login
+		if ($("#div_play").is(':visible'))
+		{
+			// Transition from play to login
+			$("#div_play").fadeOut("slow",function(){
+				$("#div_login").fadeIn("slow",function(){
+					$("#input_name").focus();
+				});
+			});
+		}
+		else
+		{
+			// Transition from scores to login
+			$("#div_scores").fadeOut("slow",function(){
+				$("#div_login").fadeIn("slow",function(){
+					$("#input_name").focus();
+				});
+			});
+		}
+		$("#div_info").slideUp();
+	}
+	
+	$(document).ready(function() {
+		$("#input_name").focus();
+	
+		$("#input_name").keypress(function(e) {
+			if(e.which == 13)
+			{
+				$("#button_play").click();
+				e.preventDefault();
+				return false;
+			}
+		});
+		$("#button_play").click(submitName);
+
+		$("#input_guess").keypress(function(e) {
+			if(e.which == 13)
+			{
+				$("#button_guess").click();
+				e.preventDefault();
+				return false;
+			}
+		});
+		$("#button_guess").click(submitGuess);
+		
+		$("#button_disconnect").click(disconnect);
+	});
+</script>
+<script>
+</script>
+  </body>	
+</html>
