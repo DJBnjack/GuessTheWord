@@ -62,7 +62,7 @@ io.sockets.on('connection', function (socket) {
 			else
 				retString += '2';
 		}
-		socket.emit('result',retString);
+		socket.emit('result',{guess : guess, result : retString});
 		
 		if (retString == '00000') 
 		{

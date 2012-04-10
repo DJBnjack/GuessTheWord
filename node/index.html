@@ -3,51 +3,25 @@
   <head>
     <meta charset=utf-8>
     <title>Word Guess</title>
-    <!--[if IE]>
-      <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js">
-      </script>
-    <![endif]-->
     <style>
       body { margin:100px; }
       article, aside, figure, footer, header, hgroup, menu, nav, section { 
         display:block;
       }
+	  
+	  table { border-collapse:collapse}
+	  table, th, td {margin: 0px; padding: 0px; border: 0px;}
+	  td.right {background-color: #00cc33}
+	  td.wrong {background-color: #ff3300}
+	  td.wrong_place {background-color: #ffff00}
     </style>
-  </head>
-  <body>
-    <header>
-      <h1>Welcome to Word Guess</h1>
-	  <div id="div_info" style="display:none">
-		<span><label id="label_user"></label><button id="button_disconnect">disconnect</button></span>
-		<p id="p_players"></p>
-	  </div>
-    </header>
-	<div id="div_login">
-		<h2>Please choose a name to start</h2>
-		<span>Nickname: <input id="input_name"><button id="button_play">Play</button></span>
-	</div>
-	<div id="div_play" style="display: none">
-		<h2>Guess the word!</h2>
-		<p id="p_hint"></p>
-		<ul id="ul_feedback"></ul>
-		<span><input id="input_guess"><button id="button_guess">Guess</button></span>
-	</div>
-	<div id="div_scores" style="display: none">
-		<h2 id="h2_winner"></h2>
-		<p>Your score:</p>
-		<h2 id="h2_score"></h2>
-		<p id="p_newgame"></p>
-	</div>
-    <footer>
-      <p>Created with HTML5, Node.js and Socket.IO</p>
-    </footer>
-	
 <script src="/socket.io/socket.io.js"></script>
 <script src="/jquery-1.7.2.js"></script>
 <script>
 	var socket;
 	var connected = false;
 	var score = 0;
+	var tabClass = ['right','wrong_place','wrong'];
 
 	function getKeys(dict) {
 		var keys = [];
@@ -56,15 +30,17 @@
 	}
 
 	function doLogin() {
-		console.log("Loggin on now...");
+		alert('Logging on now');
 		socket = io.connect(null,{'force new connection':true}); // io.connect();
 		
 		// Register hooks
 		socket.on('guessed', function (name) {
-			if (name == $('#input_name').val())
+			if (name == $('#input_name').val()) {
 				$("#h2_winner").html('You won!');
-			else
+				score = score + 1;
+			} else {
 				$("#h2_winner").html('Winner: '+name);
+			}
 				
 			toScore();
 		});
@@ -94,8 +70,11 @@
 		});
 		
 		socket.on('hint', function (hint) {
-			$('#p_hint').html(hint);
-			$('#ul_feedback').html("");
+			// Clear table
+			$("#table_results").find("tr").remove();
+		
+			// Add the hint
+			addResult(hint, "00000");
 			
 			if ($("#div_login").is(':visible'))
 			{
@@ -118,22 +97,29 @@
 		});
 		
 		socket.on('connect_failed', function () {
-			console.log('connection failed. reconnecting...')
+			//console.log('connection failed. reconnecting...')
 			socket.connect()
 		})
 		
 		socket.on('error', function (reason){
-			console.error('Unable to connect Socket.IO', reason);
+			//console.error('Unable to connect Socket.IO', reason);
 		});
 
 		
 		socket.on('result',function (result) {
-			$('#ul_feedback').append("<li>"+result+"</li>");
-			if (result == '00000')
-			{
-				score = score + 1;
-			}
+			//console.log('Got result:',result);
+			addResult(result.guess, result.result);
 		});
+	}
+	
+	function addResult(word, result) {
+		var html = '<tr>';
+		
+		for (var i = 0; i < word.length; i++)
+			html += '<td class="'+tabClass[result.charAt(i)]+'">'+word.charAt(i)+'</td>';
+		
+		html += '</tr>';
+		$('#table_results > tbody:last').append(html);
 	}
 	
 	function submitName() {
@@ -221,7 +207,33 @@
 		$("#button_disconnect").click(disconnect);
 	});
 </script>
-<script>
-</script>
-  </body>	
+
+	</head>
+  <body>
+    <header>
+      <h1>Welcome to Word Guess</h1>
+	  <div id="div_info" style="display:none">
+		<span><label id="label_user"></label><button id="button_disconnect">disconnect</button></span>
+		<p id="p_players"></p>
+	  </div>
+    </header>
+	<div id="div_login">
+		<h2>Please choose a name to start</h2>
+		<span>Nickname: <input id="input_name"><button id="button_play">Play</button></span>
+	</div>
+	<div id="div_play" style="display: none">
+		<h2>Guess the word!</h2>
+		<table id="table_results"><tbody></tbody></table>
+		<span><input id="input_guess"><button id="button_guess">Guess</button></span>
+	</div>
+	<div id="div_scores" style="display: none">
+		<h2 id="h2_winner"></h2>
+		<p>Your score:</p>
+		<h2 id="h2_score"></h2>
+		<p id="p_newgame"></p>
+	</div>
+    <footer>
+      <p>Created with HTML5, node.js, express, and socket.IO</p>
+    </footer>
+	</body>	
 </html>
